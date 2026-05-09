@@ -39,6 +39,7 @@ function Dashboard() {
 
   return (
     <div className="px-1 animate-float-up">
+      <div className="-mx-1"><PrototypeDisclaimer compact /></div>
       <Header title={`Hi, ${profile.full_name.split(" ")[0]}`} subtitle="AZEC Finance" unread={notifs ?? 0} />
 
       {/* Wallet hero card */}

@@ -185,6 +185,15 @@ export async function emergencyVaultUnlock(userId: string, profile: Profile): Pr
   });
 
   await logTransaction(userId, "vault_unlock", released, "Emergency unlock", "vault");
+  await logVaultAction({
+    userId,
+    action: "unlock",
+    amount: released,
+    vaultBalanceAfter: updated.vault_balance,
+    walletBalanceAfter: updated.wallet_balance,
+    streakAfter: updated.streak_count,
+    note: "Emergency unlock",
+  });
   await pushNotification(
     userId,
     "Streak reset",

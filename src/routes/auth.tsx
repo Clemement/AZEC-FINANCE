@@ -90,6 +90,7 @@ function AuthPage() {
             {busy ? "Please wait..." : mode === "login" ? "Sign in" : "Create account"}
           </button>
         </form>
+        <div className="mt-4 -mx-6"><PrototypeDisclaimer /></div>
       </div>
     </PhoneShell>
   );

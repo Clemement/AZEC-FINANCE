@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { ArrowLeft, Lock, Mail, User2, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PhoneShell } from "@/components/PhoneShell";
+import { PrototypeDisclaimer } from "@/components/PrototypeDisclaimer";
+import { hashPin } from "@/lib/crypto";
 
 export const Route = createFileRoute("/auth")({ component: AuthPage });
 

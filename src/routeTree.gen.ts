@@ -9,38 +9,174 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SetupRouteImport } from './routes/setup'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppWalletRouteImport } from './routes/app.wallet'
+import { Route as AppVaultRouteImport } from './routes/app.vault'
+import { Route as AppNotificationsRouteImport } from './routes/app.notifications'
+import { Route as AppInterveneRouteImport } from './routes/app.intervene'
+import { Route as AppFoodRouteImport } from './routes/app.food'
+import { Route as AppDashboardRouteImport } from './routes/app.dashboard'
 
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppWalletRoute = AppWalletRouteImport.update({
+  id: '/wallet',
+  path: '/wallet',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppVaultRoute = AppVaultRouteImport.update({
+  id: '/vault',
+  path: '/vault',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppNotificationsRoute = AppNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInterveneRoute = AppInterveneRouteImport.update({
+  id: '/intervene',
+  path: '/intervene',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFoodRoute = AppFoodRouteImport.update({
+  id: '/food',
+  path: '/food',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/setup': typeof SetupRoute
+  '/app/dashboard': typeof AppDashboardRoute
+  '/app/food': typeof AppFoodRoute
+  '/app/intervene': typeof AppInterveneRoute
+  '/app/notifications': typeof AppNotificationsRoute
+  '/app/vault': typeof AppVaultRoute
+  '/app/wallet': typeof AppWalletRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/setup': typeof SetupRoute
+  '/app/dashboard': typeof AppDashboardRoute
+  '/app/food': typeof AppFoodRoute
+  '/app/intervene': typeof AppInterveneRoute
+  '/app/notifications': typeof AppNotificationsRoute
+  '/app/vault': typeof AppVaultRoute
+  '/app/wallet': typeof AppWalletRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/setup': typeof SetupRoute
+  '/app/dashboard': typeof AppDashboardRoute
+  '/app/food': typeof AppFoodRoute
+  '/app/intervene': typeof AppInterveneRoute
+  '/app/notifications': typeof AppNotificationsRoute
+  '/app/vault': typeof AppVaultRoute
+  '/app/wallet': typeof AppWalletRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/setup'
+    | '/app/dashboard'
+    | '/app/food'
+    | '/app/intervene'
+    | '/app/notifications'
+    | '/app/vault'
+    | '/app/wallet'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/setup'
+    | '/app/dashboard'
+    | '/app/food'
+    | '/app/intervene'
+    | '/app/notifications'
+    | '/app/vault'
+    | '/app/wallet'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/setup'
+    | '/app/dashboard'
+    | '/app/food'
+    | '/app/intervene'
+    | '/app/notifications'
+    | '/app/vault'
+    | '/app/wallet'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  AuthRoute: typeof AuthRoute
+  SetupRoute: typeof SetupRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +184,77 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/wallet': {
+      id: '/app/wallet'
+      path: '/wallet'
+      fullPath: '/app/wallet'
+      preLoaderRoute: typeof AppWalletRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/vault': {
+      id: '/app/vault'
+      path: '/vault'
+      fullPath: '/app/vault'
+      preLoaderRoute: typeof AppVaultRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/notifications': {
+      id: '/app/notifications'
+      path: '/notifications'
+      fullPath: '/app/notifications'
+      preLoaderRoute: typeof AppNotificationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/intervene': {
+      id: '/app/intervene'
+      path: '/intervene'
+      fullPath: '/app/intervene'
+      preLoaderRoute: typeof AppInterveneRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/food': {
+      id: '/app/food'
+      path: '/food'
+      fullPath: '/app/food'
+      preLoaderRoute: typeof AppFoodRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/dashboard': {
+      id: '/app/dashboard'
+      path: '/dashboard'
+      fullPath: '/app/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppDashboardRoute: typeof AppDashboardRoute
+  AppFoodRoute: typeof AppFoodRoute
+  AppInterveneRoute: typeof AppInterveneRoute
+  AppNotificationsRoute: typeof AppNotificationsRoute
+  AppVaultRoute: typeof AppVaultRoute
+  AppWalletRoute: typeof AppWalletRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppDashboardRoute: AppDashboardRoute,
+  AppFoodRoute: AppFoodRoute,
+  AppInterveneRoute: AppInterveneRoute,
+  AppNotificationsRoute: AppNotificationsRoute,
+  AppVaultRoute: AppVaultRoute,
+  AppWalletRoute: AppWalletRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  AuthRoute: AuthRoute,
+  SetupRoute: SetupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

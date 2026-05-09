@@ -275,3 +275,147 @@ Be concise, student-friendly, and use Malaysian Ringgit (RM).`;
       };
     }
   });
+
+// ============================================================
+// PayLater debt risk analyzer
+// ============================================================
+
+const DebtInput = z.object({
+  payLaterAmount: z.number().min(0).max(1_000_000),
+  currentDebt: z.number().min(0).max(1_000_000),
+  vaultSavings: z.number().min(0).max(1_000_000),
+  goalDate: z.string().min(1).max(64), // ISO date or human-readable
+  monthlyIncome: z.number().min(0).max(1_000_000).optional(),
+  context: z.string().max(200).optional(),
+});
+
+export type DebtRiskAdvice = {
+  riskLevel: "LOW" | "MEDIUM" | "HIGH";
+  estimatedImpact: string;
+  manageable: boolean;
+  recommendation: string;
+  totalProjectedDebt: number;
+};
+
+function deriveDebtRisk(payLater: number, currentDebt: number, vault: number): "LOW" | "MEDIUM" | "HIGH" {
+  const total = payLater + currentDebt;
+  if (total === 0) return "LOW";
+  const coverage = vault > 0 ? vault / total : 0;
+  if (payLater > vault || coverage < 0.25) return "HIGH";
+  if (coverage < 0.6) return "MEDIUM";
+  return "LOW";
+}
+
+export const generateDebtRiskAdvice = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => DebtInput.parse(d))
+  .handler(async ({ data }): Promise<DebtRiskAdvice> => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    const totalProjectedDebt = +(data.payLaterAmount + data.currentDebt).toFixed(2);
+    const heuristicRisk = deriveDebtRisk(data.payLaterAmount, data.currentDebt, data.vaultSavings);
+    const heuristicManageable = heuristicRisk !== "HIGH" && data.payLaterAmount <= data.vaultSavings;
+
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is not configured");
+      return {
+        riskLevel: heuristicRisk,
+        estimatedImpact: `Adds RM${data.payLaterAmount.toFixed(2)} to your debt — total RM${totalProjectedDebt.toFixed(2)}.`,
+        manageable: heuristicManageable,
+        recommendation: heuristicManageable
+          ? "Pay it off in full next cycle to avoid interest snowballing."
+          : "Skip PayLater — your vault won't cover it. Save up first.",
+        totalProjectedDebt,
+      };
+    }
+
+    const prompt = `You are an AI debt management assistant helping Malaysian university students avoid dangerous debt accumulation.
+
+- New PayLater debt: RM${data.payLaterAmount.toFixed(2)}
+- Current debt: RM${data.currentDebt.toFixed(2)}
+- Smart Vault savings: RM${data.vaultSavings.toFixed(2)}
+- Total projected debt if approved: RM${totalProjectedDebt.toFixed(2)}
+- Debt-free goal date: ${data.goalDate}
+${data.monthlyIncome ? `- Monthly income/allowance: RM${data.monthlyIncome.toFixed(2)}` : ""}
+${data.context ? `- Note: ${data.context}` : ""}
+
+Return ONLY a compact JSON object (no markdown, no code fences) with this exact shape:
+{
+  "riskLevel": "LOW" | "MEDIUM" | "HIGH",
+  "estimatedImpact": string,    // 1 sentence on how this affects their debt-free goal
+  "manageable": boolean,        // realistic assessment given their vault and goal date
+  "recommendation": string      // short, realistic, kind-but-firm next step
+}
+
+Be concise, realistic, and use Malaysian Ringgit (RM).`;
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15_000);
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.6,
+              maxOutputTokens: 400,
+              responseMimeType: "application/json",
+            },
+          }),
+          signal: controller.signal,
+        },
+      ).finally(() => clearTimeout(timeout));
+
+      if (!res.ok) {
+        console.error("Gemini API error", res.status, await res.text().catch(() => ""));
+        return {
+          riskLevel: heuristicRisk,
+          estimatedImpact: `Adds RM${data.payLaterAmount.toFixed(2)} to your debt — total RM${totalProjectedDebt.toFixed(2)}.`,
+          manageable: heuristicManageable,
+          recommendation: heuristicManageable
+            ? "Repay in full next cycle."
+            : "Skip PayLater for now — save in your vault first.",
+          totalProjectedDebt,
+        };
+      }
+
+      const json = (await res.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim();
+      const cleaned = (text ?? "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+      const parsed = (cleaned ? JSON.parse(cleaned) : {}) as Partial<DebtRiskAdvice>;
+
+      const riskLevel: "LOW" | "MEDIUM" | "HIGH" =
+        parsed.riskLevel === "LOW" || parsed.riskLevel === "MEDIUM" || parsed.riskLevel === "HIGH"
+          ? parsed.riskLevel
+          : heuristicRisk;
+
+      return {
+        riskLevel,
+        estimatedImpact:
+          typeof parsed.estimatedImpact === "string" && parsed.estimatedImpact.length > 0
+            ? parsed.estimatedImpact
+            : `Adds RM${data.payLaterAmount.toFixed(2)} to your debt — total RM${totalProjectedDebt.toFixed(2)}.`,
+        manageable: typeof parsed.manageable === "boolean" ? parsed.manageable : heuristicManageable,
+        recommendation:
+          typeof parsed.recommendation === "string" && parsed.recommendation.length > 0
+            ? parsed.recommendation
+            : "Repay in full next cycle to avoid interest.",
+        totalProjectedDebt,
+      };
+    } catch (err) {
+      console.error("Gemini debt advice failed", err);
+      return {
+        riskLevel: heuristicRisk,
+        estimatedImpact: `Adds RM${data.payLaterAmount.toFixed(2)} to your debt — total RM${totalProjectedDebt.toFixed(2)}.`,
+        manageable: heuristicManageable,
+        recommendation: heuristicManageable
+          ? "Repay in full next cycle."
+          : "Skip PayLater — save in your vault first.",
+        totalProjectedDebt,
+      };
+    }
+  });

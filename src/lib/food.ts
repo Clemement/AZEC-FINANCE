@@ -109,6 +109,14 @@ export async function logFoodPurchase(userId: string, profile: Profile, raw: unk
   });
 
   await logTransaction(userId, "food", -cost, meal, "food");
+  await logFoodBudget({
+    userId,
+    budget: updated.weekly_food_budget,
+    spent: updated.weekly_food_spent,
+    kind: "purchase",
+    meal,
+    cost,
+  });
 
   const status = evaluateFoodBudget(updated);
   if (status.overBudget) {

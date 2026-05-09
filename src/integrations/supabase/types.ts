@@ -47,6 +47,42 @@ export type Database = {
         }
         Relationships: []
       }
+      food_budget: {
+        Row: {
+          budget: number
+          cost: number | null
+          created_at: string
+          id: string
+          kind: string
+          meal: string | null
+          spent: number
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          budget?: number
+          cost?: number | null
+          created_at?: string
+          id?: string
+          kind?: string
+          meal?: string | null
+          spent?: number
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          budget?: number
+          cost?: number | null
+          created_at?: string
+          id?: string
+          kind?: string
+          meal?: string | null
+          spent?: number
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
@@ -158,6 +194,42 @@ export type Database = {
           id?: string
           type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      vault_logs: {
+        Row: {
+          action: string
+          amount: number
+          created_at: string
+          id: string
+          note: string | null
+          streak_after: number
+          user_id: string
+          vault_balance_after: number
+          wallet_balance_after: number
+        }
+        Insert: {
+          action: string
+          amount?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          streak_after?: number
+          user_id: string
+          vault_balance_after?: number
+          wallet_balance_after?: number
+        }
+        Update: {
+          action?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          streak_after?: number
+          user_id?: string
+          vault_balance_after?: number
+          wallet_balance_after?: number
         }
         Relationships: []
       }

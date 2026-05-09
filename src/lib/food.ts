@@ -6,6 +6,7 @@ import {
   updateProfile,
   type Profile,
 } from "@/lib/profile";
+import { logFoodBudget } from "@/lib/history";
 
 export const RESTAURANTS = [
   { name: "Nasi Lemak Antarabangsa", area: "Kampung Baru, KL", price: 6, rating: 4.6, tag: "Cheap & filling" },
@@ -108,6 +109,14 @@ export async function logFoodPurchase(userId: string, profile: Profile, raw: unk
   });
 
   await logTransaction(userId, "food", -cost, meal, "food");
+  await logFoodBudget({
+    userId,
+    budget: updated.weekly_food_budget,
+    spent: updated.weekly_food_spent,
+    kind: "purchase",
+    meal,
+    cost,
+  });
 
   const status = evaluateFoodBudget(updated);
   if (status.overBudget) {

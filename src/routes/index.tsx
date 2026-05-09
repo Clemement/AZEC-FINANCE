@@ -51,10 +51,11 @@ function Splash() {
             <div className="flex flex-col items-center gap-1.5"><Sparkles className="size-5 text-primary" /><span className="text-[10px]">AI Coach</span></div>
           </div>
         </div>
-        <div className="absolute bottom-10 left-0 right-0 flex justify-center">
+        <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-3">
           <div className="h-1 w-32 rounded-full bg-muted overflow-hidden">
             <div className="h-full w-full shimmer" />
           </div>
+          <div className="w-full"><PrototypeDisclaimer compact /></div>
         </div>
       </div>
     </PhoneShell>

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { logVaultAction } from "@/lib/history";
 
 export type Profile = {
   id: string;

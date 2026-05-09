@@ -11,15 +11,17 @@ const Input = z.object({
   context: z.string().max(200).optional(),
 });
 
+const FALLBACK =
+  "Pause and reflect: do you really need this right now? Consider whether this purchase brings you closer to being debt-free.";
+
 export const generateAIWarning = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => Input.parse(d))
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
+    // Read secret inside handler (server-only). Never expose to client.
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return {
-        message:
-          "Pause and reflect: do you really need this right now? Consider whether this purchase brings you closer to being debt-free.",
-      };
+      console.error("GEMINI_API_KEY is not configured");
+      return { message: FALLBACK };
     }
 
     const prompt = `You are a calm, empathetic financial coach for Malaysian university students.
@@ -36,25 +38,37 @@ ${data.context ? `- Note: ${data.context}` : ""}
 Return only the message text.`;
 
     try {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15_000);
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 120 },
+          }),
+          signal: controller.signal,
         },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
+      ).finally(() => clearTimeout(timeout));
+
       if (!res.ok) {
-        return { message: "Take a breath. This isn't an emergency. Sleep on it for 30 minutes — your future debt-free self will thank you." };
+        console.error("Gemini API error", res.status, await res.text().catch(() => ""));
+        return { message: FALLBACK };
       }
-      const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-      const message = json.choices?.[0]?.message?.content?.trim() ||
-        "Take a breath. This isn't an emergency. Sleep on it for 30 minutes.";
-      return { message };
-    } catch {
-      return { message: "Take a moment. Is this purchase a need, or a craving for novelty? Your debt-free goal is closer than you think." };
+
+      const json = (await res.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const text = json.candidates?.[0]?.content?.parts
+        ?.map((p) => p.text ?? "")
+        .join("")
+        .trim();
+      return { message: text || FALLBACK };
+    } catch (err) {
+      console.error("Gemini request failed", err);
+      return { message: FALLBACK };
     }
   });

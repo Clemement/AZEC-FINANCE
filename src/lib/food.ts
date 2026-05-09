@@ -6,6 +6,7 @@ import {
   updateProfile,
   type Profile,
 } from "@/lib/profile";
+import { logFoodBudget } from "@/lib/history";
 
 export const RESTAURANTS = [
   { name: "Nasi Lemak Antarabangsa", area: "Kampung Baru, KL", price: 6, rating: 4.6, tag: "Cheap & filling" },

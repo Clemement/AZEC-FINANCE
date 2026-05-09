@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { ArrowLeft, Lock, Mail, User2, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PhoneShell } from "@/components/PhoneShell";
+import { PrototypeDisclaimer } from "@/components/PrototypeDisclaimer";
+import { hashPin } from "@/lib/crypto";
 
 export const Route = createFileRoute("/auth")({ component: AuthPage });
 
@@ -29,8 +31,9 @@ function AuthPage() {
         });
         if (error) throw error;
         if (data.user) {
-          // Save PIN + full name to profile (trigger created the row)
-          await supabase.from("profiles").update({ pin, full_name: fullName }).eq("id", data.user.id);
+          // Hash PIN with user id as salt — never store plaintext PINs.
+          const pinHash = await hashPin(pin, data.user.id);
+          await supabase.from("profiles").update({ pin: pinHash, full_name: fullName }).eq("id", data.user.id);
           toast.success("Welcome to AZEC!");
           nav({ to: "/setup" });
         }
@@ -87,6 +90,7 @@ function AuthPage() {
             {busy ? "Please wait..." : mode === "login" ? "Sign in" : "Create account"}
           </button>
         </form>
+        <div className="mt-4 -mx-6"><PrototypeDisclaimer /></div>
       </div>
     </PhoneShell>
   );

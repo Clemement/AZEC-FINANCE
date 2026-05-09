@@ -4,6 +4,7 @@ import { Sparkles, ShieldCheck, TrendingUp } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { fetchProfile } from "@/lib/profile";
 import { PhoneShell } from "@/components/PhoneShell";
+import { PrototypeDisclaimer } from "@/components/PrototypeDisclaimer";
 
 export const Route = createFileRoute("/")({
   component: Splash,

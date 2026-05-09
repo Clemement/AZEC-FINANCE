@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Target, Calendar, Utensils } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { updateProfile } from "@/lib/profile";
+import { logFoodBudget } from "@/lib/history";
 import { PhoneShell } from "@/components/PhoneShell";
 
 export const Route = createFileRoute("/setup")({ component: Setup });

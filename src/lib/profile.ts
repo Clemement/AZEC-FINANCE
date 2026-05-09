@@ -100,6 +100,15 @@ export async function processTopUp(userId: string, profile: Profile, amount: num
   await logTransaction(userId, "topup", amount, `Top up RM ${amount.toFixed(2)}`, "wallet");
   if (lock > 0) {
     await logTransaction(userId, "vault_lock", lock, "Auto-locked 20% to Smart Vault", "vault");
+    await logVaultAction({
+      userId,
+      action: "lock",
+      amount: lock,
+      vaultBalanceAfter: updated.vault_balance,
+      walletBalanceAfter: updated.wallet_balance,
+      streakAfter: updated.streak_count,
+      note: `Auto-lock from RM ${amount.toFixed(2)} top-up`,
+    });
     await pushNotification(
       userId,
       "Smart Vault locked 🔒",

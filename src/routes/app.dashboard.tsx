@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { CircularProgress } from "@/components/CircularProgress";
 import { Lock, Wallet, TrendingDown, Flame, Utensils, ArrowRight, LogOut, Sparkles } from "lucide-react";
+import { PrototypeDisclaimer } from "@/components/PrototypeDisclaimer";
 
 export const Route = createFileRoute("/app/dashboard")({ component: Dashboard });
 

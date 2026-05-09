@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowDownLeft, ArrowUpRight, QrCode, Plus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { calcVaultLock, fetchProfile, logTransaction, pushNotification, updateProfile } from "@/lib/profile";
+import { calcVaultLock, fetchProfile, logTransaction, processTopUp, updateProfile } from "@/lib/profile";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 

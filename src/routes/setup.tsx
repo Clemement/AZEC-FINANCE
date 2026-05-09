@@ -36,6 +36,9 @@ function Setup() {
         weekly_food_budget: f,
         setup_complete: true,
       });
+      if (f > 0) {
+        await logFoodBudget({ userId: user.id, budget: f, spent: 0, kind: "budget_set" });
+      }
       toast.success("All set. Let's build the habit.");
       nav({ to: "/app/dashboard" });
     } catch (err: unknown) {

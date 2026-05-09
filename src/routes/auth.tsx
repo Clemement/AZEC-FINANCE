@@ -31,8 +31,9 @@ function AuthPage() {
         });
         if (error) throw error;
         if (data.user) {
-          // Save PIN + full name to profile (trigger created the row)
-          await supabase.from("profiles").update({ pin, full_name: fullName }).eq("id", data.user.id);
+          // Hash PIN with user id as salt — never store plaintext PINs.
+          const pinHash = await hashPin(pin, data.user.id);
+          await supabase.from("profiles").update({ pin: pinHash, full_name: fullName }).eq("id", data.user.id);
           toast.success("Welcome to AZEC!");
           nav({ to: "/setup" });
         }

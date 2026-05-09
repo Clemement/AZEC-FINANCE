@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowDownLeft, ArrowUpRight, QrCode, Plus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { calcVaultLock, fetchProfile, logTransaction, pushNotification, updateProfile } from "@/lib/profile";
+import { calcVaultLock, fetchProfile, logTransaction, processTopUp, updateProfile } from "@/lib/profile";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 
@@ -38,17 +38,10 @@ function WalletPage() {
 
   async function topup(amount: number) {
     if (!user || !p) return;
+    await processTopUp(user.id, p, amount);
     const lock = calcVaultLock(amount);
-    const toWallet = amount - lock;
-    await updateProfile(user.id, {
-      wallet_balance: p.wallet_balance + toWallet,
-      vault_balance: p.vault_balance + lock,
-    });
-    await logTransaction(user.id, "topup", amount, `Top up RM ${amount.toFixed(2)}`, "wallet");
     if (lock > 0) {
-      await logTransaction(user.id, "vault_lock", lock, `Auto-locked 20% to Smart Vault`, "vault");
-      await pushNotification(user.id, "Smart Vault locked 🔒", `RM ${lock.toFixed(2)} (20%) auto-locked from your top-up. Discipline.`, "info");
-      toast.success(`Top-up RM ${toWallet.toFixed(2)} — RM ${lock.toFixed(2)} locked in Vault`);
+      toast.success(`Top-up RM ${(amount - lock).toFixed(2)} — RM ${lock.toFixed(2)} locked in Vault`);
     } else {
       toast.success(`Top up RM ${amount.toFixed(2)} added`);
     }

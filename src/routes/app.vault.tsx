@@ -1,16 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Lock, Unlock, Flame, Trophy } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { fetchProfile, logTransaction, pushNotification, updateProfile } from "@/lib/profile";
+import {
+  STREAK_TARGET,
+  emergencyVaultUnlock,
+  fetchProfile,
+  tickStreakIfDue,
+} from "@/lib/profile";
 import { Header } from "@/components/Header";
 import { CircularProgress } from "@/components/CircularProgress";
 
 export const Route = createFileRoute("/app/vault")({ component: VaultPage });
-
-const STREAK_TARGET = 30;
 
 function VaultPage() {
   const { user } = useAuth();
@@ -21,6 +24,18 @@ function VaultPage() {
     queryFn: () => fetchProfile(user!.id),
     enabled: !!user,
   });
+
+  // Auto-tick the streak whenever the profile loads and a new day has begun.
+  useEffect(() => {
+    if (!user || !p) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (p.vault_balance > 0 && p.last_streak_date !== today) {
+      tickStreakIfDue(user.id, p)
+        .then(() => qc.invalidateQueries({ queryKey: ["profile", user.id] }))
+        .catch(() => {});
+    }
+  }, [user, p, qc]);
+
   if (!p) return null;
 
   const streakPct = Math.min(100, (p.streak_count / STREAK_TARGET) * 100);
@@ -33,16 +48,11 @@ function VaultPage() {
     setBusy(true);
     try {
       const released = p.vault_balance;
-      await updateProfile(user.id, {
-        vault_balance: 0,
-        wallet_balance: p.wallet_balance + released,
-        streak_count: 0,
-        last_streak_date: null,
-      });
-      await logTransaction(user.id, "vault_unlock", released, "Emergency unlock", "vault");
-      await pushNotification(user.id, "Streak reset", `You unlocked RM ${released.toFixed(2)}. Your streak resets to 0 — start again tomorrow.`, "warning");
+      await emergencyVaultUnlock(user.id, p);
       toast.success(`RM ${released.toFixed(2)} returned to wallet`);
       qc.invalidateQueries({ queryKey: ["profile", user.id] });
+    } catch (err) {
+      toast.error((err as Error).message);
     } finally { setBusy(false); }
   }
 
@@ -51,22 +61,11 @@ function VaultPage() {
     const today = new Date().toISOString().slice(0, 10);
     if (p.last_streak_date === today) { toast.info("Already checked in today"); return; }
     if (p.vault_balance <= 0) { toast.error("Lock something in vault first"); return; }
-    const newStreak = p.streak_count + 1;
-    let walletBonus = 0;
-    if (newStreak >= STREAK_TARGET) {
-      walletBonus = 1;
-    }
-    await updateProfile(user.id, {
-      streak_count: newStreak >= STREAK_TARGET ? 0 : newStreak,
-      last_streak_date: today,
-      wallet_balance: p.wallet_balance + walletBonus,
-    });
-    if (walletBonus > 0) {
-      await pushNotification(user.id, "Reward unlocked! 🎉", "30-day streak achieved. RM 1 added to your wallet.", "success");
-      await logTransaction(user.id, "reward", 1, "30-day streak reward", "vault");
+    const updated = await tickStreakIfDue(user.id, p);
+    if (updated.streak_count === 0 && p.streak_count + 1 >= STREAK_TARGET) {
       toast.success("Reward unlocked: RM 1");
     } else {
-      toast.success(`Streak: ${newStreak} day${newStreak > 1 ? "s" : ""}`);
+      toast.success(`Streak: ${updated.streak_count} day${updated.streak_count > 1 ? "s" : ""}`);
     }
     qc.invalidateQueries({ queryKey: ["profile", user.id] });
   }

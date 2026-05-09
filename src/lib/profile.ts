@@ -149,6 +149,15 @@ export async function tickStreakIfDue(userId: string, profile: Profile): Promise
     wallet_balance: profile.wallet_balance + reward,
   });
 
+  await logVaultAction({
+    userId,
+    action: reward > 0 ? "reward" : "streak_tick",
+    amount: reward,
+    vaultBalanceAfter: updated.vault_balance,
+    walletBalanceAfter: updated.wallet_balance,
+    streakAfter: updated.streak_count,
+    note: reward > 0 ? "30-day streak reward" : `Streak tick → ${updated.streak_count}`,
+  });
   if (reward > 0) {
     await logTransaction(userId, "reward", reward, "30-day streak reward", "vault");
     await pushNotification(

@@ -14,7 +14,153 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_warnings: {
+        Row: {
+          cooldown_until: string | null
+          created_at: string
+          id: string
+          proceeded: boolean | null
+          product_name: string | null
+          product_price: number | null
+          user_id: string
+          warning_message: string | null
+        }
+        Insert: {
+          cooldown_until?: string | null
+          created_at?: string
+          id?: string
+          proceeded?: boolean | null
+          product_name?: string | null
+          product_price?: number | null
+          user_id: string
+          warning_message?: string | null
+        }
+        Update: {
+          cooldown_until?: string | null
+          created_at?: string
+          id?: string
+          proceeded?: boolean | null
+          product_name?: string | null
+          product_price?: number | null
+          user_id?: string
+          warning_message?: string | null
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          kind: string
+          read: boolean
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          read?: boolean
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          read?: boolean
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          debt_free_goal_date: string | null
+          debt_initial: number
+          debt_remaining: number
+          full_name: string
+          id: string
+          last_streak_date: string | null
+          pin: string | null
+          setup_complete: boolean
+          streak_count: number
+          updated_at: string
+          vault_balance: number
+          wallet_balance: number
+          weekly_food_budget: number
+          weekly_food_spent: number
+        }
+        Insert: {
+          created_at?: string
+          debt_free_goal_date?: string | null
+          debt_initial?: number
+          debt_remaining?: number
+          full_name: string
+          id: string
+          last_streak_date?: string | null
+          pin?: string | null
+          setup_complete?: boolean
+          streak_count?: number
+          updated_at?: string
+          vault_balance?: number
+          wallet_balance?: number
+          weekly_food_budget?: number
+          weekly_food_spent?: number
+        }
+        Update: {
+          created_at?: string
+          debt_free_goal_date?: string | null
+          debt_initial?: number
+          debt_remaining?: number
+          full_name?: string
+          id?: string
+          last_streak_date?: string | null
+          pin?: string | null
+          setup_complete?: boolean
+          streak_count?: number
+          updated_at?: string
+          vault_balance?: number
+          wallet_balance?: number
+          weekly_food_budget?: number
+          weekly_food_spent?: number
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

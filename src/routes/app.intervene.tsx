@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Brain, Sparkles, Clock, ShoppingBag, AlertTriangle, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -8,10 +8,13 @@ import { fetchProfile, logTransaction, pushNotification, updateProfile } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { generateAIWarning, type AIWarningResult } from "@/lib/ai.functions";
 import { Header } from "@/components/Header";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/app/intervene")({ component: InterventionPage });
 
 const COOLDOWN_MS = 30 * 60 * 1000;
+
+type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
 type ActiveWarning = AIWarningResult & {
   id: string;
@@ -19,6 +22,15 @@ type ActiveWarning = AIWarningResult & {
   productPrice: number;
   cooldownUntil: number;
 };
+
+/** Risk from price vs monthly budget (weekly_food_budget * 4). Falls back to AI risk if no budget. */
+function computeRisk(price: number, monthlyBudget: number, fallback: RiskLevel): RiskLevel {
+  if (!(monthlyBudget > 0)) return fallback;
+  const ratio = price / monthlyBudget;
+  if (ratio < 0.1) return "LOW";
+  if (ratio <= 0.25) return "MEDIUM";
+  return "HIGH";
+}
 
 function InterventionPage() {
   const { user } = useAuth();
@@ -29,6 +41,7 @@ function InterventionPage() {
   const [active, setActive] = useState<ActiveWarning | null>(null);
   const [thinking, setThinking] = useState(false);
   const [buying, setBuying] = useState(false);
+  const [overrideOpen, setOverrideOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   const { data: p } = useQuery({
@@ -37,13 +50,11 @@ function InterventionPage() {
     enabled: !!user,
   });
 
-  // 1s ticking clock for the countdown
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // Restore an in-flight cooldown when the user reloads / re-enters the page
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -80,6 +91,19 @@ function InterventionPage() {
   const mm = Math.floor(remaining / 60000);
   const ss = Math.floor((remaining % 60000) / 1000);
   const pct = active ? Math.min(100, (1 - remaining / COOLDOWN_MS) * 100) : 0;
+
+  const monthlyBudget = (p?.weekly_food_budget ?? 0) * 4;
+  const risk: RiskLevel = useMemo(() => {
+    if (!active) return "LOW";
+    return computeRisk(active.productPrice, monthlyBudget, (active.riskLevel as RiskLevel) ?? "MEDIUM");
+  }, [active, monthlyBudget]);
+
+  const riskColor =
+    risk === "HIGH" ? "text-[#f87171]" : risk === "MEDIUM" ? "text-[#f5c518]" : "text-[#4ade80]";
+  const dontBuyBorder =
+    risk === "HIGH" ? "border-[#f87171]/60 text-[#f87171]" :
+    risk === "MEDIUM" ? "border-[#f5c518]/60 text-[#f5c518]" :
+    "border-[#4ade80]/60 text-[#4ade80]";
 
   async function reflect(e: React.FormEvent) {
     e.preventDefault();
@@ -134,77 +158,55 @@ function InterventionPage() {
     }
   }
 
-  async function proceedAnyway(emergency = false) {
-    if (!user || !p || !active) return;
-    if (onCooldown && !emergency) {
-      toast.error("Wait for cooldown to end");
-      return;
-    }
-    if (emergency) {
-      const ok = confirm(
-        `Emergency override — skip the ${Math.ceil(remaining / 60000)}-minute reflection and buy "${active.productName}" for RM ${active.productPrice.toFixed(2)}?\n\nThis will be logged.`,
-      );
-      if (!ok) return;
-    }
-    if (active.productPrice > p.wallet_balance) {
-      toast.error("Insufficient wallet");
-      return;
-    }
-    await updateProfile(user.id, { wallet_balance: p.wallet_balance - active.productPrice });
-    await logTransaction(
-      user.id,
-      emergency ? "purchase_override" : "purchase",
-      -active.productPrice,
-      `${emergency ? "[Override] " : ""}Bought: ${active.productName}`,
-      "spend",
-    );
-    await supabase.from("ai_warnings").update({ proceeded: true }).eq("id", active.id);
-    if (emergency) {
-      await pushNotification(
-        user.id,
-        "Cooldown overridden",
-        `You bypassed the 30-minute reflection on "${active.productName}".`,
-        "warning",
-      );
-    }
-    qc.invalidateQueries({ queryKey: ["profile", user.id] });
-    qc.invalidateQueries({ queryKey: ["txs", user.id] });
-    toast.success("Purchase recorded");
-    reset();
-  }
-
-  async function buyLowRisk() {
+  async function doPurchase(opts: { emergency: boolean }) {
     if (!user || !p || !active) return;
     if (active.productPrice > p.wallet_balance) {
-      toast.error("Insufficient balance");
+      toast.error("✗ Insufficient balance");
       return;
     }
     setBuying(true);
     try {
       await updateProfile(user.id, { wallet_balance: p.wallet_balance - active.productPrice });
+      const label = opts.emergency
+        ? `Spending · ${active.productName} · ${risk} override`
+        : `Spending · ${active.productName}`;
       await logTransaction(
         user.id,
-        "purchase",
+        opts.emergency ? "purchase_override" : "purchase",
         -active.productPrice,
-        `Bought: ${active.productName}`,
+        label,
         "spend",
       );
       await supabase.from("ai_warnings").update({ proceeded: true }).eq("id", active.id);
+      if (opts.emergency) {
+        await pushNotification(
+          user.id,
+          "Cooldown overridden",
+          `You bypassed the 30-minute reflection on "${active.productName}".`,
+          "warning",
+        );
+      }
       qc.invalidateQueries({ queryKey: ["profile", user.id] });
       qc.invalidateQueries({ queryKey: ["txs", user.id] });
-      toast.success(`Purchase confirmed. RM ${active.productPrice.toFixed(2)} deducted.`);
+      if (opts.emergency) {
+        toast.warning("⚠ Override logged. Balance updated.");
+      } else {
+        toast.success(`✓ Purchase confirmed. RM ${active.productPrice.toFixed(2)} deducted.`);
+      }
+      setOverrideOpen(false);
       setTimeout(() => {
         reset();
-        navigate({ to: "/app/wallet" });
-      }, 1500);
+        if (!opts.emergency) navigate({ to: "/app/wallet" });
+      }, 1200);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Purchase failed");
+    } finally {
       setBuying(false);
     }
   }
 
   function abort() {
-    toast.success("Smart choice. Money saved.");
+    toast("Purchase skipped. Good discipline!");
     reset();
   }
 
@@ -214,12 +216,7 @@ function InterventionPage() {
     setPrice("");
   }
 
-  const riskColor =
-    active?.riskLevel === "HIGH"
-      ? "text-destructive"
-      : active?.riskLevel === "MEDIUM"
-        ? "text-primary"
-        : "text-success";
+  const insufficient = !!p && !!active && active.productPrice > p.wallet_balance;
 
   return (
     <div className="animate-float-up">
@@ -278,7 +275,7 @@ function InterventionPage() {
                   <Brain className="size-6" />
                 </div>
                 <span className={`text-[11px] font-bold uppercase tracking-wider ${riskColor}`}>
-                  {active.riskLevel} risk
+                  {risk} risk
                 </span>
               </div>
               <h3 className="mt-3 text-lg font-bold">A reflective pause</h3>
@@ -289,7 +286,6 @@ function InterventionPage() {
                 {active.warning || active.message}
               </p>
 
-              {/* Cooldown timer */}
               <div className="mt-4 p-3 rounded-xl bg-background/50">
                 <div className="flex items-center gap-2">
                   <Clock className="size-4 text-primary" />
@@ -329,52 +325,42 @@ function InterventionPage() {
             </div>
           )}
 
-          {(() => {
-            const isLow = active.riskLevel === "LOW";
-            const insufficient = !!p && active.productPrice > p.wallet_balance;
-            return (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <button onClick={abort} className="py-3 rounded-xl border border-success/40 text-success font-medium">
-                    Don't buy
-                  </button>
-                  {isLow ? (
-                    <button
-                      onClick={buyLowRisk}
-                      disabled={buying || insufficient}
-                      className={`py-3 rounded-xl font-semibold transition ${
-                        insufficient
-                          ? "bg-muted text-muted-foreground cursor-not-allowed"
-                          : "bg-success text-background hover:bg-success/90 disabled:opacity-60"
-                      }`}
-                    >
-                      {buying ? "Processing..." : `Buy · RM ${active.productPrice.toFixed(2)}`}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => proceedAnyway(false)}
-                      disabled={onCooldown}
-                      className={`py-3 rounded-xl font-medium ${
-                        onCooldown
-                          ? "bg-muted text-muted-foreground cursor-not-allowed"
-                          : "bg-destructive/20 text-destructive border border-destructive/40"
-                      }`}
-                    >
-                      {onCooldown ? "Locked" : "Proceed anyway"}
-                    </button>
-                  )}
-                </div>
-                {isLow && insufficient && (
-                  <p className="text-xs text-destructive text-center -mt-1">Insufficient balance</p>
-                )}
-              </>
-            );
-          })()}
-
-          {!((active.riskLevel === "LOW")) && onCooldown && (
+          <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={() => proceedAnyway(true)}
-              className="w-full py-2.5 rounded-xl border border-destructive/40 text-destructive/90 text-xs font-medium flex items-center justify-center gap-2 hover:bg-destructive/10 transition"
+              onClick={abort}
+              className={`py-3 rounded-xl border font-medium ${dontBuyBorder}`}
+            >
+              Don't buy
+            </button>
+            {risk === "LOW" ? (
+              <button
+                onClick={() => doPurchase({ emergency: false })}
+                disabled={buying || insufficient}
+                className={`py-3 rounded-xl font-semibold transition ${
+                  insufficient
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "bg-[#4ade80] text-background hover:bg-[#4ade80]/90 disabled:opacity-60"
+                }`}
+              >
+                {buying ? "Processing..." : `Buy · RM ${active.productPrice.toFixed(2)}`}
+              </button>
+            ) : (
+              <button
+                disabled
+                className="py-3 rounded-xl font-medium bg-muted text-muted-foreground cursor-not-allowed"
+              >
+                Locked
+              </button>
+            )}
+          </div>
+          {risk === "LOW" && insufficient && (
+            <p className="text-xs text-destructive text-center -mt-1">Insufficient balance</p>
+          )}
+
+          {(risk === "MEDIUM" || risk === "HIGH") && (
+            <button
+              onClick={() => setOverrideOpen(true)}
+              className="w-full py-2.5 rounded-xl border border-[#f87171]/50 text-[#f87171] text-xs font-medium flex items-center justify-center gap-2 hover:bg-[#f87171]/10 transition"
             >
               <ShieldAlert className="size-3.5" />
               Emergency override (skip cooldown)
@@ -387,6 +373,44 @@ function InterventionPage() {
           </p>
         </section>
       )}
+
+      <Dialog open={overrideOpen} onOpenChange={setOverrideOpen}>
+        <DialogContent
+          className="border-[#2a3557] bg-[#1a2340] text-white sm:max-w-sm rounded-2xl"
+        >
+          <div className="flex justify-center -mt-2">
+            <div className="size-12 rounded-full bg-[#f87171]/15 flex items-center justify-center ring-1 ring-[#f87171]/40">
+              <ShieldAlert className="size-6 text-[#f87171]" />
+            </div>
+          </div>
+          <DialogHeader>
+            <DialogTitle className="text-center text-[18px] text-white">Are you sure?</DialogTitle>
+            <DialogDescription className="text-center text-sm text-white/80 leading-relaxed">
+              {active && risk === "HIGH" ? (
+                <>⚠ High risk purchase! Skipping reflection to buy {active.productName} for RM {active.productPrice.toFixed(2)}. This override will be logged and may reset your savings streak.</>
+              ) : active ? (
+                <>Emergency override — skip the 30-minute reflection and buy {active.productName} for RM {active.productPrice.toFixed(2)}? This will be logged.</>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="grid grid-cols-2 gap-3 sm:gap-3">
+            <button
+              onClick={() => setOverrideOpen(false)}
+              disabled={buying}
+              className="py-2.5 rounded-xl border border-white/20 text-white/80 font-medium hover:bg-white/5"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => doPurchase({ emergency: true })}
+              disabled={buying || insufficient}
+              className="py-2.5 rounded-xl bg-[#f87171] text-white font-semibold hover:bg-[#f87171]/90 disabled:opacity-60"
+            >
+              {buying ? "Processing..." : "Confirm buy"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

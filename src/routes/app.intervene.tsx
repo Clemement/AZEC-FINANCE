@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -23,10 +23,12 @@ type ActiveWarning = AIWarningResult & {
 function InterventionPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [active, setActive] = useState<ActiveWarning | null>(null);
   const [thinking, setThinking] = useState(false);
+  const [buying, setBuying] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   const { data: p } = useQuery({
@@ -171,6 +173,36 @@ function InterventionPage() {
     reset();
   }
 
+  async function buyLowRisk() {
+    if (!user || !p || !active) return;
+    if (active.productPrice > p.wallet_balance) {
+      toast.error("Insufficient balance");
+      return;
+    }
+    setBuying(true);
+    try {
+      await updateProfile(user.id, { wallet_balance: p.wallet_balance - active.productPrice });
+      await logTransaction(
+        user.id,
+        "purchase",
+        -active.productPrice,
+        `Bought: ${active.productName}`,
+        "spend",
+      );
+      await supabase.from("ai_warnings").update({ proceeded: true }).eq("id", active.id);
+      qc.invalidateQueries({ queryKey: ["profile", user.id] });
+      qc.invalidateQueries({ queryKey: ["txs", user.id] });
+      toast.success(`Purchase confirmed. RM ${active.productPrice.toFixed(2)} deducted.`);
+      setTimeout(() => {
+        reset();
+        navigate({ to: "/app/wallet" });
+      }, 1500);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Purchase failed");
+      setBuying(false);
+    }
+  }
+
   function abort() {
     toast.success("Smart choice. Money saved.");
     reset();
@@ -297,24 +329,49 @@ function InterventionPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <button onClick={abort} className="py-3 rounded-xl border border-success/40 text-success font-medium">
-              Don't buy
-            </button>
-            <button
-              onClick={() => proceedAnyway(false)}
-              disabled={onCooldown}
-              className={`py-3 rounded-xl font-medium ${
-                onCooldown
-                  ? "bg-muted text-muted-foreground cursor-not-allowed"
-                  : "bg-destructive/20 text-destructive border border-destructive/40"
-              }`}
-            >
-              {onCooldown ? "Locked" : "Proceed anyway"}
-            </button>
-          </div>
+          {(() => {
+            const isLow = active.riskLevel === "LOW";
+            const insufficient = !!p && active.productPrice > p.wallet_balance;
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={abort} className="py-3 rounded-xl border border-success/40 text-success font-medium">
+                    Don't buy
+                  </button>
+                  {isLow ? (
+                    <button
+                      onClick={buyLowRisk}
+                      disabled={buying || insufficient}
+                      className={`py-3 rounded-xl font-semibold transition ${
+                        insufficient
+                          ? "bg-muted text-muted-foreground cursor-not-allowed"
+                          : "bg-success text-background hover:bg-success/90 disabled:opacity-60"
+                      }`}
+                    >
+                      {buying ? "Processing..." : `Buy · RM ${active.productPrice.toFixed(2)}`}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => proceedAnyway(false)}
+                      disabled={onCooldown}
+                      className={`py-3 rounded-xl font-medium ${
+                        onCooldown
+                          ? "bg-muted text-muted-foreground cursor-not-allowed"
+                          : "bg-destructive/20 text-destructive border border-destructive/40"
+                      }`}
+                    >
+                      {onCooldown ? "Locked" : "Proceed anyway"}
+                    </button>
+                  )}
+                </div>
+                {isLow && insufficient && (
+                  <p className="text-xs text-destructive text-center -mt-1">Insufficient balance</p>
+                )}
+              </>
+            );
+          })()}
 
-          {onCooldown && (
+          {!((active.riskLevel === "LOW")) && onCooldown && (
             <button
               onClick={() => proceedAnyway(true)}
               className="w-full py-2.5 rounded-xl border border-destructive/40 text-destructive/90 text-xs font-medium flex items-center justify-center gap-2 hover:bg-destructive/10 transition"

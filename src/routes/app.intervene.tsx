@@ -329,24 +329,49 @@ function InterventionPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <button onClick={abort} className="py-3 rounded-xl border border-success/40 text-success font-medium">
-              Don't buy
-            </button>
-            <button
-              onClick={() => proceedAnyway(false)}
-              disabled={onCooldown}
-              className={`py-3 rounded-xl font-medium ${
-                onCooldown
-                  ? "bg-muted text-muted-foreground cursor-not-allowed"
-                  : "bg-destructive/20 text-destructive border border-destructive/40"
-              }`}
-            >
-              {onCooldown ? "Locked" : "Proceed anyway"}
-            </button>
-          </div>
+          {(() => {
+            const isLow = active.riskLevel === "LOW";
+            const insufficient = !!p && active.productPrice > p.wallet_balance;
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={abort} className="py-3 rounded-xl border border-success/40 text-success font-medium">
+                    Don't buy
+                  </button>
+                  {isLow ? (
+                    <button
+                      onClick={buyLowRisk}
+                      disabled={buying || insufficient}
+                      className={`py-3 rounded-xl font-semibold transition ${
+                        insufficient
+                          ? "bg-muted text-muted-foreground cursor-not-allowed"
+                          : "bg-success text-background hover:bg-success/90 disabled:opacity-60"
+                      }`}
+                    >
+                      {buying ? "Processing..." : `Buy · RM ${active.productPrice.toFixed(2)}`}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => proceedAnyway(false)}
+                      disabled={onCooldown}
+                      className={`py-3 rounded-xl font-medium ${
+                        onCooldown
+                          ? "bg-muted text-muted-foreground cursor-not-allowed"
+                          : "bg-destructive/20 text-destructive border border-destructive/40"
+                      }`}
+                    >
+                      {onCooldown ? "Locked" : "Proceed anyway"}
+                    </button>
+                  )}
+                </div>
+                {isLow && insufficient && (
+                  <p className="text-xs text-destructive text-center -mt-1">Insufficient balance</p>
+                )}
+              </>
+            );
+          })()}
 
-          {onCooldown && (
+          {!((active.riskLevel === "LOW")) && onCooldown && (
             <button
               onClick={() => proceedAnyway(true)}
               className="w-full py-2.5 rounded-xl border border-destructive/40 text-destructive/90 text-xs font-medium flex items-center justify-center gap-2 hover:bg-destructive/10 transition"

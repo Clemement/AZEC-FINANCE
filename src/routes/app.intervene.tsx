@@ -23,10 +23,12 @@ type ActiveWarning = AIWarningResult & {
 function InterventionPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [active, setActive] = useState<ActiveWarning | null>(null);
   const [thinking, setThinking] = useState(false);
+  const [buying, setBuying] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   const { data: p } = useQuery({

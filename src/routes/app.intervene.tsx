@@ -173,6 +173,36 @@ function InterventionPage() {
     reset();
   }
 
+  async function buyLowRisk() {
+    if (!user || !p || !active) return;
+    if (active.productPrice > p.wallet_balance) {
+      toast.error("Insufficient balance");
+      return;
+    }
+    setBuying(true);
+    try {
+      await updateProfile(user.id, { wallet_balance: p.wallet_balance - active.productPrice });
+      await logTransaction(
+        user.id,
+        "purchase",
+        -active.productPrice,
+        `Bought: ${active.productName}`,
+        "spend",
+      );
+      await supabase.from("ai_warnings").update({ proceeded: true }).eq("id", active.id);
+      qc.invalidateQueries({ queryKey: ["profile", user.id] });
+      qc.invalidateQueries({ queryKey: ["txs", user.id] });
+      toast.success(`Purchase confirmed. RM ${active.productPrice.toFixed(2)} deducted.`);
+      setTimeout(() => {
+        reset();
+        navigate({ to: "/app/wallet" });
+      }, 1500);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Purchase failed");
+      setBuying(false);
+    }
+  }
+
   function abort() {
     toast.success("Smart choice. Money saved.");
     reset();

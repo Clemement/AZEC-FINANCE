@@ -93,11 +93,12 @@ function InterventionPage() {
   const ss = Math.floor((remaining % 60000) / 1000);
   const pct = active ? Math.min(100, (1 - remaining / COOLDOWN_MS) * 100) : 0;
 
-  const monthlyBudget = (p?.weekly_food_budget ?? 0) * 4;
+  const walletBalance = p?.wallet_balance ?? 0;
   const risk: RiskLevel = useMemo(() => {
     if (!active) return "LOW";
-    return computeRisk(active.productPrice, monthlyBudget, (active.riskLevel as RiskLevel) ?? "MEDIUM");
-  }, [active, monthlyBudget]);
+    return computeRisk(active.productPrice, walletBalance, (active.riskLevel as RiskLevel) ?? "MEDIUM");
+  }, [active, walletBalance]);
+
 
   const riskColor =
     risk === "HIGH" ? "text-[#f87171]" : risk === "MEDIUM" ? "text-[#f5c518]" : "text-[#4ade80]";

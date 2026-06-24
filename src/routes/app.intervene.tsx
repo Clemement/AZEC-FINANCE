@@ -23,14 +23,15 @@ type ActiveWarning = AIWarningResult & {
   cooldownUntil: number;
 };
 
-/** Risk from price vs monthly budget (weekly_food_budget * 4). Falls back to AI risk if no budget. */
-function computeRisk(price: number, monthlyBudget: number, fallback: RiskLevel): RiskLevel {
-  if (!(monthlyBudget > 0)) return fallback;
-  const ratio = price / monthlyBudget;
+/** Risk from price vs wallet balance. Falls back to AI risk if no wallet balance. */
+function computeRisk(price: number, walletBalance: number, fallback: RiskLevel): RiskLevel {
+  if (!(walletBalance > 0)) return fallback;
+  const ratio = price / walletBalance;
   if (ratio < 0.1) return "LOW";
   if (ratio <= 0.25) return "MEDIUM";
   return "HIGH";
 }
+
 
 function InterventionPage() {
   const { user } = useAuth();
@@ -92,11 +93,12 @@ function InterventionPage() {
   const ss = Math.floor((remaining % 60000) / 1000);
   const pct = active ? Math.min(100, (1 - remaining / COOLDOWN_MS) * 100) : 0;
 
-  const monthlyBudget = (p?.weekly_food_budget ?? 0) * 4;
+  const walletBalance = p?.wallet_balance ?? 0;
   const risk: RiskLevel = useMemo(() => {
     if (!active) return "LOW";
-    return computeRisk(active.productPrice, monthlyBudget, (active.riskLevel as RiskLevel) ?? "MEDIUM");
-  }, [active, monthlyBudget]);
+    return computeRisk(active.productPrice, walletBalance, (active.riskLevel as RiskLevel) ?? "MEDIUM");
+  }, [active, walletBalance]);
+
 
   const riskColor =
     risk === "HIGH" ? "text-[#f87171]" : risk === "MEDIUM" ? "text-[#f5c518]" : "text-[#4ade80]";

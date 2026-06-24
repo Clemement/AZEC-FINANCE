@@ -23,14 +23,15 @@ type ActiveWarning = AIWarningResult & {
   cooldownUntil: number;
 };
 
-/** Risk from price vs monthly budget (weekly_food_budget * 4). Falls back to AI risk if no budget. */
-function computeRisk(price: number, monthlyBudget: number, fallback: RiskLevel): RiskLevel {
-  if (!(monthlyBudget > 0)) return fallback;
-  const ratio = price / monthlyBudget;
+/** Risk from price vs wallet balance. Falls back to AI risk if no wallet balance. */
+function computeRisk(price: number, walletBalance: number, fallback: RiskLevel): RiskLevel {
+  if (!(walletBalance > 0)) return fallback;
+  const ratio = price / walletBalance;
   if (ratio < 0.1) return "LOW";
   if (ratio <= 0.25) return "MEDIUM";
   return "HIGH";
 }
+
 
 function InterventionPage() {
   const { user } = useAuth();
